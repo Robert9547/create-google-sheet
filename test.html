@@ -12,6 +12,7 @@
     <!-- 引入 Google Sheets API 的 JavaScript 庫 -->
     <script src="https://apis.google.com/js/api.js"></script>
 
+
 </head>
 
 <body>
@@ -27,12 +28,28 @@
                 <label>表格名稱</label>
                 <input type="text" class="form-control" id="Input" placeholder="new sheet">
                 <br />
-                <!-- <div id="spreadsheetId"></div> -->
+
+                <div id="addUser" style="display: none;">
+                    <!--  -->
+                    <label>欲加入共同編輯者信箱</label>
+                    <div class="row">
+                        <div class="col-md-9">
+                            <input type="email" class="form-control" id="usermail" placeholder="zxc@gmail.com"
+                                required />
+                        </div>
+                        <div class="col-md-2">
+                            <button class="btn btn-secondary" id="show"
+                                onclick="loadClient_Share().then(appendUser)">加入</button>
+                        </div>
+                    </div>
+                </div>
+                <br />
                 <div id="link-container"></div>
                 <br />
                 <div style="width: 48rem;">
-                    <button class="btn btn-lg btn-primary" onclick="authenticate().then(loadClient)">登入認證</button>
-                    <button class="btn btn-lg btn-primary" onclick="execute()">創建表格</button>
+                    <button class="btn btn-lg btn-primary"
+                        onclick="authenticate().then(loadClient).then(execute)">創建表格</button>
+                    <button class="btn btn-lg btn-primary" onclick="updateCell()">更新表格</button>
                 </div>
                 <br />
             </div>
@@ -42,6 +59,8 @@
 
 </body>
 <script>
+    var sheetsId = "0";
+
     // 啟動 Google 登入流程，請求許可權以存取 Google 雲端硬碟、Google 雲端硬碟中的檔案和 Google Sheets
     function authenticate() {
         return gapi.auth2.getAuthInstance()
@@ -53,6 +72,14 @@
     function loadClient() {
         gapi.client.setApiKey("AIzaSyB9iosbgmZRp_IWbrRtvG_AtmZQWEU2yOs");
         return gapi.client.load("https://sheets.googleapis.com/$discovery/rest?version=v4")
+            .then(function () { console.log("GAPI client loaded for API"); },
+                function (err) { console.error("Error loading GAPI client for API", err); });
+
+    }
+    // 設置 API 金鑰並載入 Google Drive API
+    function loadClient_Share() {
+        gapi.client.setApiKey("AIzaSyB9iosbgmZRp_IWbrRtvG_AtmZQWEU2yOs");
+        return gapi.client.load("https://content.googleapis.com/discovery/v1/apis/drive/v3/rest")
             .then(function () { console.log("GAPI client loaded for API"); },
                 function (err) { console.error("Error loading GAPI client for API", err); });
     }
@@ -68,6 +95,9 @@
             linkElement.textContent = `Open ${title} Sheet`;
             const container = document.getElementById('link-container');
             container.appendChild(linkElement);
+            //開啟加入使用者div
+            var addUser = document.getElementById("addUser");
+            addUser.style.display = "block";
         });
         // return gapi.client.sheets.spreadsheets.create({
         //     "resource": {}
@@ -89,14 +119,60 @@
             }).then((response) => {
                 if (callback) callback(response);
                 console.log('Spreadsheet ID: ' + response.result.spreadsheetId);
+                sheetsId = response.result.spreadsheetId;
                 // const spreadsheetIdDiv = document.getElementById("spreadsheetId");
                 // spreadsheetIdDiv.innerHTML = "創建的表格連結為：https://docs.google.com/spreadsheets/d/" + response.result.spreadsheetId;
-                window.alert("創建成功")
+                window.alert("創建成功");
             });
         } catch (err) {
             document.getElementById('content').innerText = err.message;
             return;
         }
+    }
+    //
+    function updateCell() {
+        var values = [
+            ["編號", "資訊發生時間", "中文標題", "原文標題", "技術觀測摘要(中文)", "技術觀測摘要(原文)", "原文網址", "資訊國別", "技術次領域", "關鍵字置信度", "符合的關鍵字", "評分", "按讚數", "留言數", "轉推數", "引用數", "人(Person)", "地(Place)", "產品(Product)", "組織(Organization)", "其他(Other)", "資料來源", "推文者", "資訊擷取時間", "twitter id", "媒體連結", "twitter原網址", "資訊作者", "alerts id"]
+            , ["1"]
+            , ["2"]
+            , ["3"]
+            , ["4"]
+            , ["5"]
+        ];
+        var body = {
+            values: values
+        };
+        var request = gapi.client.sheets.spreadsheets.values.update({
+            spreadsheetId: sheetsId,
+            range: '工作表1!A1',
+            valueInputOption: 'USER_ENTERED',
+            resource: body
+        });
+        request.execute(function (response) {
+            console.log(response);
+        });
+    }
+    //加入共編者
+    function appendUser() {
+        const email = document.getElementById('usermail').value;
+        return gapi.client.drive.permissions.create({
+            "fileId": sheetsId,
+            // "emailMessage": "email",
+            "resource": {
+                "role": "writer",
+                "type": "user",
+                "emailAddress": email
+            }
+        })
+            .then(function (response) {
+                // Handle the results here (response.result has the parsed body).
+                console.log("Response", response);
+                window.alert(email + " 加入成功!");
+            },
+                function (err) {
+                    console.error("Execute error", err);
+                    window.alert(email + " 加入失敗!\n請確認信箱格式是否正確")
+                });
     }
 
     // 初始化 Google API 客戶端庫
@@ -107,6 +183,7 @@
             plugin_name: 'App Name that you used in google developer console API'
         });
     });
+
 </script>
 
 </html>
